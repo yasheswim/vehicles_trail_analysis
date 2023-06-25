@@ -1,0 +1,23 @@
+Assumptions made during data analysis:
+
+-- Lat and long values assumed to be in degrees, hence have converted into radians before calculating distance
+
+-- Aggregated distance values in kilometers
+
+-- Report generated between time periods end_time = 1526543776 and start_time = 1525145685
+
+-- If end time or start time are not mentioned, api assumes entries for one particular date range and generates report accordingly
+
+-- If both end time and start times are not mentioned, api iterates through all trail data and gives aggregated report
+
+-- Use uvicorn apis:app --reload to start fastapi server
+
+-- use local url --> http://localhost:8000/api/generate_report?start_time=1525145685&end_time=1526543776 to call API from Postman
+
+-- ignore both starttime and end time params in url if ypu want to keep both none
+
+-- Ignore either params if you want to find for a particular date range only
+
+-- If date range entered does not exist, message "Data not available for given daterange" appears
+
+-- Please find report in datasets/asset_report directory
