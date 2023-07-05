@@ -1,10 +1,8 @@
 import pandas as pd
 import numpy as np
-import datetime
 from typing import Optional
 import glob
 import math
-import traceback
 from hard_coded_variables import TRAIL_FOLDER_PATH, TRIP_INFO_DATA_PATH
 import warnings
 
@@ -24,16 +22,11 @@ def get_trail_data(start_time:Optional[int],end_time:Optional[int]):
         elif start_time is not None and end_time is not None:
             filtered_df = df[(df['tis'] >= start_time) & (df['tis'] <= end_time)]
         elif end_time is None or start_time is None:
-            filtered_df = df[(df['tis'] == start_time) | (df['tis'] == end_time)]
+            filtered_df = df[(df['tis'] >= start_time) | (df['tis'] <= end_time)]
         else:
             pass
-        filtered_df['lat'].fillna(0.00,inplace=True)
-        filtered_df['lon'].fillna(0.00,inplace=True)
-        filtered_df['lat_2'] = filtered_df['lat'].shift(-1)
-        filtered_df['lon_2'] = filtered_df['lon'].shift(-1)
-        filtered_df['Distance_Travelled'] = np.nan
-        filtered_df['Distance_Travelled'] = filtered_df.apply(lambda row: haversine_formula(row['lat'], row['lon'],row['lat_2'], row['lon_2']), axis=1)
-        filtered_df.drop(columns=['lat_2','lon_2'],inplace=True)
+        # filtered_df['lat'].fillna(0.00,inplace=True)
+        # filtered_df['lon'].fillna(0.00,inplace=True)
         filtered_dataframes.append(filtered_df)
     
     combined_data = pd.concat(filtered_dataframes, ignore_index=True)
@@ -41,8 +34,8 @@ def get_trail_data(start_time:Optional[int],end_time:Optional[int]):
 
 
 
-def haversine_formula(lat1, lon1, lat2, lon2):
-    if pd.isnull(lat1) or pd.isnull(lon1) or pd.isnull(lat2):
+def haversine_formula(lat1, lat2, lon1, lon2):
+    if pd.isnull(lat1) or pd.isnull(lon1) or pd.isnull(lat2) or pd.isnull(lon2):
         return 0
     # Haversine formula after converting degrees to radians
     dlat = math.radians(lat2) -  math.radians(lat1)
@@ -50,7 +43,6 @@ def haversine_formula(lat1, lon1, lat2, lon2):
     a = abs(math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2)
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     radius = 6371  # Earth's radius in kilometers
-
     # Calculate the distance
     distance = radius * c
     return distance
@@ -62,12 +54,20 @@ def aggregate_trail_data(start_time,end_time):
     trail_data = get_trail_data(start_time,end_time) 
     if trail_data.empty:
         raise Exception("no data available for given date range")
+    trail_data['Distance_Travelled'] = np.nan
     aggregations = {
-    'Distance_Travelled': 'sum',
+    
     'osf': lambda row: row[row=='True'].count(),
     'spd': 'mean'
         }
     result = trail_data.groupby('lic_plate_no').agg(aggregations)
+    result['Distance_Travelled'] = trail_data.loc[(trail_data[['lat', 'lon']].notnull()).all(axis=1) &
+                                (trail_data[['lat', 'lon']] != 0).all(axis=1)].groupby('lic_plate_no').apply(
+    lambda group: haversine_formula(group.loc[group['tis'].idxmin(), 'lat'], 
+                                    group.loc[group['tis'].idxmax(), 'lat'],
+                                   group.loc[group['tis'].idxmin(), 'lon'],
+                                     group.loc[group['tis'].idxmax(), 'lon'])
+    if len(group) > 1 else 0)
     result.reset_index(inplace=True)
     return result
 
